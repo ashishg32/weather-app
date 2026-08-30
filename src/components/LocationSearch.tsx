@@ -3,7 +3,7 @@
 import { gql } from '@apollo/client';
 import { useQuery } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useReducer, useCallback } from 'react';
 import type { Location } from '@/types';
 
 const SEARCH = gql`
@@ -19,79 +19,155 @@ const SEARCH = gql`
   }
 `;
 
+// React Hook: useReducer manages complex state with multiple related values
+type SearchState = {
+  term: string;
+  debounced: string;
+  open: boolean;
+  active: number;
+};
+
+type SearchAction =
+  | { type: 'SET_TERM'; payload: string }
+  | { type: 'SET_DEBOUNCED'; payload: string }
+  | { type: 'SET_OPEN'; payload: boolean }
+  | { type: 'SET_ACTIVE'; payload: number }
+  | { type: 'RESET_ACTIVE' }
+  | { type: 'INCREMENT_ACTIVE'; maxIndex: number }
+  | { type: 'DECREMENT_ACTIVE'; maxIndex: number }
+  | { type: 'SELECT_LOCATION'; name: string };
+
+function searchReducer(state: SearchState, action: SearchAction): SearchState {
+  switch (action.type) {
+    case 'SET_TERM':
+      return { ...state, term: action.payload, open: true, active: 0 };
+    case 'SET_DEBOUNCED':
+      return { ...state, debounced: action.payload };
+    case 'SET_OPEN':
+      return { ...state, open: action.payload };
+    case 'SET_ACTIVE':
+      return { ...state, active: action.payload };
+    case 'RESET_ACTIVE':
+      return { ...state, active: 0 };
+    case 'INCREMENT_ACTIVE':
+      return { ...state, active: (state.active + 1) % (action.maxIndex + 1) };
+    case 'DECREMENT_ACTIVE':
+      return {
+        ...state,
+        active: (state.active - 1 + action.maxIndex + 1) % (action.maxIndex + 1),
+      };
+    case 'SELECT_LOCATION':
+      return { ...state, term: action.name, open: false };
+    default:
+      return state;
+  }
+}
+
 export function LocationSearch() {
   const router = useRouter();
-  const [term, setTerm] = useState('');
-  const [debounced, setDebounced] = useState('');
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
+
+  // React Hook: useReducer consolidates related state
+  const [state, dispatch] = useReducer(searchReducer, {
+    term: '',
+    debounced: '',
+    open: false,
+    active: 0,
+  });
+
   const boxRef = useRef<HTMLDivElement>(null);
 
+  // Debounce effect
   useEffect(() => {
-    const id = setTimeout(() => setDebounced(term), 250);
+    const id = setTimeout(() => {
+      dispatch({ type: 'SET_DEBOUNCED', payload: state.term });
+    }, 250);
     return () => clearTimeout(id);
-  }, [term]);
+  }, [state.term]);
 
   const { data, loading } = useQuery<{ searchLocations: Location[] }>(SEARCH, {
-    variables: { query: debounced },
-    skip: debounced.trim().length < 2,
+    variables: { query: state.debounced },
+    skip: state.debounced.trim().length < 2,
   });
 
   const results = data?.searchLocations ?? [];
 
+  // Click outside handler
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (!boxRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!boxRef.current?.contains(e.target as Node)) {
+        dispatch({ type: 'SET_OPEN', payload: false });
+      }
     }
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  function select(loc: Location) {
-    setOpen(false);
-    setTerm(loc.name);
-    const label = [loc.name, loc.admin1, loc.country].filter(Boolean).join(', ');
-    router.push(`/?lat=${loc.latitude}&lon=${loc.longitude}&name=${encodeURIComponent(label)}`);
-  }
+  // React Hook: useCallback memoizes function to prevent unnecessary re-renders
+  const select = useCallback(
+    (loc: Location) => {
+      const label = [loc.name, loc.admin1, loc.country].filter(Boolean).join(', ');
+      dispatch({ type: 'SELECT_LOCATION', name: loc.name });
+      router.push(`/?lat=${loc.latitude}&lon=${loc.longitude}&name=${encodeURIComponent(label)}`);
+    },
+    [router]
+  );
 
-  function onKeyDown(e: React.KeyboardEvent) {
-    if (!open || results.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActive((i) => (i + 1) % results.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActive((i) => (i - 1 + results.length) % results.length);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const chosen = results[active];
-      if (chosen) select(chosen);
-    } else if (e.key === 'Escape') {
-      setOpen(false);
-    }
-  }
+  // React Hook: useCallback for keyboard handler
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!state.open || results.length === 0) return;
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          dispatch({ type: 'INCREMENT_ACTIVE', maxIndex: results.length - 1 });
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          dispatch({ type: 'DECREMENT_ACTIVE', maxIndex: results.length - 1 });
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (results[state.active]) select(results[state.active]);
+          break;
+        case 'Escape':
+          dispatch({ type: 'SET_OPEN', payload: false });
+          break;
+      }
+    },
+    [state.open, state.active, results, select]
+  );
+
+  // React Hook: useCallback for event handlers
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    dispatch({ type: 'SET_TERM', payload: e.target.value });
+  }, []);
+
+  const handleFocus = useCallback(() => {
+    dispatch({ type: 'SET_OPEN', payload: true });
+  }, []);
+
+  const handleMouseEnter = useCallback((index: number) => {
+    dispatch({ type: 'SET_ACTIVE', payload: index });
+  }, []);
 
   return (
     <div ref={boxRef} className="relative w-full max-w-md">
       <input
         type="text"
-        value={term}
-        onChange={(e) => {
-          setTerm(e.target.value);
-          setOpen(true);
-          setActive(0);
-        }}
-        onFocus={() => setOpen(true)}
+        value={state.term}
+        onChange={handleInputChange}
+        onFocus={handleFocus}
         onKeyDown={onKeyDown}
         placeholder="Search for a city…"
         role="combobox"
-        aria-expanded={open}
+        aria-expanded={state.open}
         aria-controls="location-listbox"
-        aria-activedescendant={open && results[active] ? `loc-${results[active].id}` : undefined}
+        aria-activedescendant={state.open && results[state.active] ? `loc-${results[state.active].id}` : undefined}
         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-slate-500"
       />
 
-      {open && debounced.trim().length >= 2 && (
+      {state.open && state.debounced.trim().length >= 2 && (
         <ul
           id="location-listbox"
           role="listbox"
@@ -106,11 +182,11 @@ export function LocationSearch() {
               key={loc.id}
               id={`loc-${loc.id}`}
               role="option"
-              aria-selected={i === active}
-              onMouseEnter={() => setActive(i)}
+              aria-selected={i === state.active}
+              onMouseEnter={() => handleMouseEnter(i)}
               onClick={() => select(loc)}
               className={`cursor-pointer px-4 py-3 text-sm ${
-                i === active ? 'bg-slate-100' : ''
+                i === state.active ? 'bg-slate-100' : ''
               }`}
             >
               <span className="font-medium text-slate-900">{loc.name}</span>

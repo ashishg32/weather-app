@@ -7,6 +7,10 @@ import { UnitToggle } from '@/components/UnitToggle';
 import { CurrentPanel } from '@/components/CurrentPanel';
 import { HourlyStrip } from '@/components/HourlyStrip';
 import { DailyGrid } from '@/components/DailyGrid';
+import { WeatherStats } from '@/components/WeatherStats';
+import { Favorites } from '@/components/Favorites';
+import { CityFilter } from '@/components/CityFilter';
+import { getFavorites } from './actions';
 
 const FORECAST_QUERY = /* GraphQL */ `
   query Forecast($lat: Float!, $lon: Float!) {
@@ -37,10 +41,22 @@ const PRESETS = [
 async function ForecastView({ lat, lon, name }: { lat: number; lon: number; name: string }) {
   const data = await executeServerQuery<{ forecast: Forecast }>(FORECAST_QUERY, { lat, lon });
   const f = data.forecast;
+  const favorites = await getFavorites();
 
   return (
     <div className="space-y-8">
       <CurrentPanel current={f.current} place={name} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Favorites
+          initialFavorites={favorites}
+          currentLocation={{ name, lat, lon }}
+        />
+        <WeatherStats hourly={f.hourly} daily={f.daily} />
+      </div>
+
+      <CityFilter />
+
       <HourlyStrip hourly={f.hourly} timezone={f.timezone} />
       <DailyGrid daily={f.daily} />
     </div>

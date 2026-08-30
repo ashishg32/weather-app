@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Weather App
+
+A modern weather application built with Next.js 16, React 19, and TypeScript, showcasing advanced React hooks and server-side rendering capabilities.
+
+## Features
+
+- **Real-time Weather Data**: Current conditions, hourly forecast, and 7-day outlook
+- **Location Search**: Smart search with keyboard navigation and debouncing
+- **Favorites**: Save and manage favorite locations with optimistic updates
+- **Weather Analytics**: Statistical insights including temperature trends and precipitation probability
+- **City Explorer**: Filter and explore 1000+ cities with responsive filtering
+- **Unit Toggle**: Switch between Celsius and Fahrenheit
+
+## Tech Stack
+
+- **Next.js 16** - App Router with Server Components
+- **React 19** - Latest hooks including useActionState and useOptimistic
+- **TypeScript** - Full type safety
+- **GraphQL** - Type-safe data fetching with graphql-yoga
+- **Apollo Client** - Client-side GraphQL integration
+- **Tailwind CSS 4** - Modern styling
+- **Open-Meteo API** - Weather data source
+
+## React 19 Hooks
+
+This project demonstrates modern React patterns:
+
+- `useActionState` - Form submissions with automatic pending states
+- `useOptimistic` - Instant UI updates before server confirmation
+- `useReducer` - Complex state management
+- `useMemo` - Performance optimization for expensive calculations
+- `useCallback` - Memoized event handlers
+- `useTransition` - Non-blocking UI updates
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Build for production
+npm run build
+
+# Type checking
+npm run typecheck
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/              # Next.js App Router pages and API routes
+│   ├── actions.ts    # Server Actions for favorites
+│   └── page.tsx      # Main weather page
+├── components/       # React components
+│   ├── Favorites.tsx      # Favorite locations with useActionState
+│   ├── WeatherStats.tsx   # Weather analytics with useMemo
+│   ├── CityFilter.tsx     # Advanced filtering with all hooks
+│   ├── LocationSearch.tsx # Search with useReducer & useCallback
+│   ├── HourlyStrip.tsx    # Hourly forecast
+│   ├── DailyGrid.tsx      # Daily forecast
+│   └── CurrentPanel.tsx   # Current conditions
+├── bff/              # Backend-for-Frontend (GraphQL layer)
+│   ├── schema.ts     # GraphQL schema
+│   ├── resolvers.ts  # GraphQL resolvers
+│   └── openMeteo.ts  # Weather API client
+└── lib/              # Utilities and context providers
+```
 
-## Learn More
+## Key Components
 
-To learn more about Next.js, take a look at the following resources:
+### Favorites
+Manages favorite locations using React 19's `useActionState` for form handling and `useOptimistic` for instant UI feedback.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### WeatherStats
+Displays statistical insights using `useMemo` to optimize expensive calculations on weather data.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### CityFilter
+Advanced filtering component demonstrating all major React hooks with a dataset of 1000 cities.
 
-## Deploy on Vercel
+### LocationSearch
+Intelligent search with keyboard navigation, debouncing, and complex state managed by `useReducer`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API Integration
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The app uses a GraphQL BFF (Backend-for-Frontend) pattern:
+- Client components use Apollo Client for queries
+- Server components use direct GraphQL execution
+- Data fetched from Open-Meteo API
+
+## Performance
+
+- Server-side rendering for fast initial load
+- Optimistic updates for instant user feedback
+- Memoization for expensive calculations
+- Non-blocking transitions for responsive UI
+- Debounced search to reduce API calls
+
+## License
+
+MIT
