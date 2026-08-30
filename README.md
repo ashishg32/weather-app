@@ -2,6 +2,12 @@
 
 A modern weather application built with Next.js 16, React 19, and TypeScript, showcasing advanced React hooks and server-side rendering capabilities.
 
+## 🌐 Live Preview
+
+**[View Live App →](https://weather-app-six-dun-62.vercel.app)**
+
+Deployed on [Vercel](https://vercel.com)
+
 ## Features
 
 - **Real-time Weather Data**: Current conditions, hourly forecast, and 7-day outlook
