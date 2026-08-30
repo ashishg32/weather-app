@@ -9,8 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "codegen": "graphql-codegen",
-    "codegen:watch": "graphql-codegen --watch",
-    "export": "next build"
+    "codegen:watch": "graphql-codegen --watch"
   },
   "dependencies": {
     "@apollo/client": "^4.2.12",
