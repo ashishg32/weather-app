@@ -50,6 +50,41 @@ npm run typecheck
 
 Open [http://localhost:3000](http://localhost:3000) to view the app.
 
+## Docker Setup
+
+Run the app using Docker for a consistent environment:
+
+### Using Docker Compose (Recommended)
+
+```bash
+# Build and run the container
+docker-compose up
+
+# Run in detached mode
+docker-compose up -d
+
+# Stop the container
+docker-compose down
+```
+
+### Using Docker directly
+
+```bash
+# Build the image
+docker build -t weather-app .
+
+# Run the container
+docker run -p 3000:3000 weather-app
+```
+
+The app will be available at [http://localhost:3000](http://localhost:3000).
+
+### Docker Notes
+
+- The Dockerfile uses a multi-stage build for optimal image size
+- Runs as a non-root user for security
+- Includes only production dependencies in the final image
+
 ## Project Structure
 
 ```
