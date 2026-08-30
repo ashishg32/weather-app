@@ -1,69 +1,97 @@
-import Image from "next/image";
+import { Suspense } from 'react';
+import Link from 'next/link';
+import { executeServerQuery } from '@/bff/execute';
+import type { Forecast } from '@/types';
+import { LocationSearch } from '@/components/LocationSearch';
+import { UnitToggle } from '@/components/UnitToggle';
+import { CurrentPanel } from '@/components/CurrentPanel';
+import { HourlyStrip } from '@/components/HourlyStrip';
+import { DailyGrid } from '@/components/DailyGrid';
 
-export default function Home() {
+const FORECAST_QUERY = /* GraphQL */ `
+  query Forecast($lat: Float!, $lon: Float!) {
+    forecast(latitude: $lat, longitude: $lon, days: 7) {
+      timezone
+      current {
+        time temperature feelsLike humidity windSpeed isDay
+        condition { code label icon }
+      }
+      hourly {
+        time temperature precipitationProbability
+        condition { code label icon }
+      }
+      daily {
+        date min max precipitationProbability sunrise sunset
+        condition { code label icon }
+      }
+    }
+  }
+`;
+
+const PRESETS = [
+  { name: 'London, UK', lat: 51.5074, lon: -0.1278 },
+  { name: 'Tokyo, JP', lat: 35.6762, lon: 139.6503 },
+  { name: 'New York, US', lat: 40.7128, lon: -74.006 },
+];
+
+async function ForecastView({ lat, lon, name }: { lat: number; lon: number; name: string }) {
+  const data = await executeServerQuery<{ forecast: Forecast }>(FORECAST_QUERY, { lat, lon });
+  const f = data.forecast;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="space-y-8">
+      <CurrentPanel current={f.current} place={name} />
+      <HourlyStrip hourly={f.hourly} timezone={f.timezone} />
+      <DailyGrid daily={f.daily} />
     </div>
+  );
+}
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ lat?: string; lon?: string; name?: string }>;
+}) {
+  const sp = await searchParams;
+  const lat = sp.lat ? Number(sp.lat) : null;
+  const lon = sp.lon ? Number(sp.lon) : null;
+  const name = sp.name ?? 'Selected location';
+  const hasPlace = lat !== null && lon !== null && !Number.isNaN(lat) && !Number.isNaN(lon);
+
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-12">
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold text-slate-900">Weather</h1>
+        <UnitToggle />
+      </header>
+
+      <div className="mb-10">
+        <LocationSearch />
+      </div>
+
+      {hasPlace ? (
+        <Suspense
+          key={`${lat}-${lon}`}
+          fallback={<div className="h-64 animate-pulse rounded-2xl bg-slate-200" />}
+        >
+          <ForecastView lat={lat} lon={lon} name={name} />
+        </Suspense>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center">
+          <p className="text-slate-600">Search for a city, or try one of these:</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {PRESETS.map((p) => (
+              <Link
+                key={p.name}
+                href={`/?lat=${p.lat}&lon=${p.lon}&name=${encodeURIComponent(p.name)}`}
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+              >
+                {p.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
